@@ -1,8 +1,5 @@
 ## Multi-level analysis of multi-sensor IMU data to PD outcomes
 
-**Author**: Devesh Kumar Gola  
-**Date**: YYYY-MM-DD
-
 ### Executive summary
 - **Gait-only PD vs SWEDD**: accuracy 0.5490 (this run); earlier run observed ~0.726. Results vary across splits; see Repro section for fixed seed and data shapes. 
 - **Swing-only PD vs SWEDD**: accuracy 0.5490.
@@ -102,14 +99,4 @@ R2: -17.9108
 ### Notes and interpretation
 - Gait carries the discriminative signal for PD vs SWEDD. Swing-only mirrors chance in this split. Earlier run observed 0.726 accuracy with the same script, indicating sensitivity to split and class balance; consider k-fold CV (e.g., 5x repeated stratified) for stable estimates.
 - Cross-modality QOI prediction is weak (negative R2), consistent with information mismatch.
-
-### Next steps
-1. Within-modality QOI prediction:
-   - Predict `ASA_U` using `X_swing.npy`; predict `SP_U` using `X_gait.npy`.
-2. Robust evaluation:
-   - 5-fold stratified CV for classification; 5-fold CV for regression. Report mean±std.
-3. Model comparisons:
-   - Extend regression head to `iTransformer`, `TimesNet`, `CrossFormer`, `Mamba` and compare.
-4. Calibration and interpretability:
-   - Reliability curves; SHAP or permutation importance over feature stems.
 

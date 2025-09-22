@@ -1,4 +1,5 @@
 import numpy as np
+from pathlib import Path
 from sklearn.model_selection import train_test_split, StratifiedKFold, GridSearchCV
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, VotingClassifier
 from sklearn.svm import SVC
@@ -178,9 +179,17 @@ def run_sklearn_optimization(data_type='gait'):
     print("- Ensemble methods")
     print("- Cross-validation")
     
-    # Load data
-    X = np.load(f'data/X_{data_type}.npy')
-    y = np.load('data/y_processed.npy')
+    # Load data (path relative to this script)
+    script_dir = Path(__file__).resolve().parent
+    data_dir = script_dir / 'data'
+    X_file = data_dir / f'X_{data_type}.npy'
+    y_file = data_dir / 'y_processed.npy'
+    if not X_file.exists():
+        raise FileNotFoundError(f"Expected data file not found: {X_file}")
+    if not y_file.exists():
+        raise FileNotFoundError(f"Expected label file not found: {y_file}")
+    X = np.load(X_file)
+    y = np.load(y_file)
     
     print(f"\nOriginal data shape: X={X.shape}, y={y.shape}")
     print(f"Class distribution: {np.bincount(y)}")

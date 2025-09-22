@@ -379,3 +379,40 @@ Already exceeded target (>72.6%). Further improvements may require:
 
 ---
 Document updated after achieving 80.4% accuracy.
+
+## Boosting & Stacking Attempt (Post-80.4% Benchmark)
+
+After reaching 80.4% with engineered RandomForest features, a boosting and stacking experiment (`advanced_boosting.py`) was run to test whether gradient boosting ensembles or meta-learning could exceed that mark.
+
+### Methods Added
+* Models: RandomForest, LightGBM, XGBoost
+* Feature Selection: RandomForest importance threshold (top ~60%)
+* Oversampling: SMOTE (k=3) inside CV (when available)
+* Stacking: RF + LGBM + XGB → Logistic Regression meta-learner
+* Calibration: Isotonic calibration of stacking output
+* Metrics: Accuracy, F1, AUC (ROC)
+* Persistence: JSON artifact `parkinsons_project/results_boosting.json`
+
+### Observed Results (Test Split 20%)
+| Model | Accuracy | F1 | AUC |
+|-------|----------|----|-----|
+| RandomForest | 0.7647 | 0.8000 | 0.7983 |
+| LightGBM | 0.7059 | 0.7500 | 0.7316 |
+| XGBoost | 0.7059 | 0.7500 | 0.7842 |
+| Stacking | 0.7059 | 0.7500 | 0.7947 |
+| Calibrated Stacking | 0.7647 | 0.8095 | 0.8298 |
+
+### Interpretation
+* None of the boosting or stacking variants surpassed the previously achieved 80.4% accuracy from the simpler RandomForest on engineered features.
+* Calibration improved AUC and F1 but not raw accuracy beyond 0.7647.
+* Likely causes:
+    - Small sample size (n=167) penalizes higher-variance boosted learners.
+    - Engineered feature set already linearly/separably captures discriminative signal.
+    - Additional model complexity introduces variance without net generalization gain.
+
+### Takeaway
+The simpler RandomForest with relational feature engineering remains the top performer (80.4% accuracy). Further progress should focus on richer temporal/biomechanical feature extraction rather than deeper tabular ensemble complexity.
+
+### Stored Artifacts
+* `parkinsons_project/results_test_accuracy.json` (80.4% benchmark)
+* `parkinsons_project/results_boosting.json` (boosting / stacking summary)

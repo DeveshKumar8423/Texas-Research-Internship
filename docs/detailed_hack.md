@@ -349,8 +349,8 @@ RandomForestClassifier(
 Simple RF accuracy: 0.8039 (80.4%)
 Enhanced RF accuracy: 0.8039 (80.4%)
 Ensemble accuracy: 0.8039 (80.4%)
-🎯 TARGET EXCEEDED by 7.8 percentage points!
-📈 Improvement over baseline: +25.5 percentage points
+TARGET EXCEEDED by 7.8 percentage points!
+Improvement over baseline: +25.5 percentage points
 ```
 
 Classification report snippet:

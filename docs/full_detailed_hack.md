@@ -1,3 +1,136 @@
+## Parkinson's multi-level pipeline and experiments (detailed)
+
+### Scope
+- Maps Level 1 (raw IMU) → Level 5 (PD outcome) and documents each experiment with: Inputs, Desired Output, Method, Metrics, Results, Interpretation.
+
+### References
+- Phenotype elucidation (multi–time-series): [HackMD reference](https://hackmd.io/@itX96tqsRQytwRxzVmwe0Q/ryaJVsHLex)
+- Data resources (PPMI and related): [HackMD data note](https://hackmd.io/b90w3y86T0mdcnAf8AgivA)
+- Repo detailed hack (this file’s canonical location): [full_detailed_hack.md](https://github.com/DeveshKumar8423/Texas-Research-Internship/blob/main/docs/full_detailed_hack.md)
+
+---
+
+### Level mapping (concise)
+- Level 1: Raw IMU (accelerometer/gyroscope) from multiple sensors (not directly used in this repo).
+- Level 2: Derived kinematic features in `PPMI_Gait_Data.csv`, with Base (`_U`) and Dual-task (`_DT`) variants.
+- Level 3: Pseudo time-series (N, 2, F) constructed by pairing `_U` and `_DT` per common stem (via `preprocess.py`).
+- Level 4: Targets
+  - Classification: PD vs SWEDD from `COHORT ∈ {1,3}` (label-encoded)
+  - QOIs: `ASA_U` (arm swing asymmetry), `SP_U` (walking speed) from `PPMI_Gait_Data.csv`
+- Level 5: Tasks
+  - L5-A Classification (PD vs SWEDD)
+  - L5-B Regression (predict QOIs)
+
+---
+
+### Data preparation (single source of truth)
+- Preprocess classification data: `preprocess.py`
+  - Filter `COHORT` to {1 (PD), 3 (SWEDD)}; numeric coercion + median imputation; label-encode; pair `_U` and `_DT` into (N, 2, F)
+  - Saves: `data/X_processed.npy`, `data/y_processed.npy`
+- Create feature splits + QOI targets: `prepare_separated_data.py`
+  - Saves: `data/X_gait.npy` (F=10), `data/X_swing.npy` (F=8)
+  - QOIs: `data/y_qoi_asymmetry.npy` (from `ASA_U`), `data/y_qoi_speed.npy` (from `SP_U`)
+
+Notes on shapes for current dataset version:
+- `X_gait.npy`: (167, 2, 10)
+- `X_swing.npy`: (167, 2, 8)
+
+---
+
+## Experiments (current run; seed=42)
+All experiments use `run_new_experiments.py` (Motion Code), 70/30 split with `random_state=42`, batch 16, 50 epochs, AdamW(lr=1e-3). Classification splits are stratified.
+
+### E1. PD vs SWEDD — Gait-only
+- Inputs
+  - Features: `data/X_gait.npy` (N=167, seq_len=2, F=10)
+  - Labels: `data/y_processed.npy` (PD/SWEDD)
+- Desired output
+  - Binary classification: PD vs SWEDD
+- Method
+  - Model: Motion Code (CE loss)
+  - Train/val split: 70/30 (stratified), seed=42
+- Metrics
+  - Accuracy, precision/recall/F1 per class (sklearn report)
+- Results
+  - Accuracy: 0.5490
+  - Full report/log: `out/exp_cls_gait.txt`
+- Interpretation
+  - At this split, performance matches the swing-only baseline; indicates split sensitivity. Stronger validation (k-fold) recommended.
+
+### E2. PD vs SWEDD — Swing-only
+- Inputs
+  - Features: `data/X_swing.npy` (N=167, seq_len=2, F=8)
+  - Labels: `data/y_processed.npy` (PD/SWEDD)
+- Desired output
+  - Binary classification: PD vs SWEDD
+- Method
+  - Model: Motion Code (CE loss)
+  - Train/val split: 70/30 (stratified), seed=42
+- Metrics
+  - Accuracy, precision/recall/F1 per class (sklearn report)
+- Results
+  - Accuracy: 0.5490
+  - Full report/log: `out/exp_cls_swing.txt`
+- Interpretation
+  - Mirrors chance on this split; consistent with weaker signal in swing-only features for PD vs SWEDD.
+
+### E3. QOI regression — Predict ASA from gait-only
+- Inputs
+  - Features: `data/X_gait.npy` (N=167, seq_len=2, F=10)
+  - Target: `data/y_qoi_asymmetry.npy` (float)
+- Desired output
+  - Regression: Predict arm swing asymmetry (ASA)
+- Method
+  - Model: Motion Code with regression head (MSE loss)
+  - Train/val split: 70/30, seed=42
+- Metrics
+  - MAE, R2
+- Results
+  - MAE: 13.8327, R2: -2.1402
+  - Log: `out/exp_pred_gait_asym.txt`
+- Interpretation
+  - Negative R2: poor predictive fit; asymmetry not captured from gait-only.
+
+### E4. QOI regression — Predict speed from swing-only
+- Inputs
+  - Features: `data/X_swing.npy` (N=167, seq_len=2, F=8)
+  - Target: `data/y_qoi_speed.npy` (float)
+- Desired output
+  - Regression: Predict walking speed (SP_U)
+- Method
+  - Model: Motion Code with regression head (MSE loss)
+  - Train/val split: 70/30, seed=42
+- Metrics
+  - MAE, R2
+- Results
+  - MAE: 0.7323, R2: -17.9108
+  - Log: `out/exp_pred_swing_speed.txt`
+- Interpretation
+  - Large negative R2 indicates mismatch: swing-only features insufficient to predict speed.
+
+---
+
+### Reproduction commands
+Run from `parkinsons_project/`:
+
+```bash
+python preprocess.py
+python prepare_separated_data.py
+
+# Classification
+python run_new_experiments.py --task classification --data gait    | tee ../out/exp_cls_gait.txt
+python run_new_experiments.py --task classification --data swing   | tee ../out/exp_cls_swing.txt
+
+# QOI regression
+python run_new_experiments.py --task prediction --data gait --qoi asymmetry | tee ../out/exp_pred_gait_asym.txt
+python run_new_experiments.py --task prediction --data swing --qoi speed    | tee ../out/exp_pred_swing_speed.txt
+```
+
+---
+
+### Notes
+- Results above are from the latest deterministic split (seed=42). For robust estimates and phenotype elucidation discussions (see [HackMD reference](https://hackmd.io/@itX96tqsRQytwRxzVmwe0Q/ryaJVsHLex)), consider k-fold evaluation and modality-appropriate QOI predictions in subsequent iterations.
+
 # Parkinson's IMU Multi-Level Pipeline – Comprehensive Technical Hack Document
 
 **Maximum Achieved Accuracy (PD vs SWEDD, Gait Data): 80.4%**  
